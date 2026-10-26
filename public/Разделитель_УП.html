@@ -425,11 +425,17 @@ G00 X10 Y10
 
             <div class="actions">
                 <button class="btn btn-primary" id="btnZip" onclick="downloadZip()">
-                    📥 Скачать в ZIP (<span id="selectedCount">0</span>)
+                    📥 Сохранить (<span id="selectedCount">0</span>)
                 </button>
                 <button class="btn btn-secondary" onclick="downloadEach()">
                     📄 Каждый файл отдельно
                 </button>
+                <button class="btn btn-secondary btn-small" onclick="changeDirectory()" id="btnChangeDir" style="display:none;">
+                    📁 Сменить папку
+                </button>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <span id="directoryInfo" style="font-size: 13px; color: #94a3b8;">📁 Папка не выбрана</span>
             </div>
 
             <div class="program-list" id="programList"></div>
@@ -444,6 +450,7 @@ G00 X10 Y10
         let programs = [];
         let selectedPrograms = new Set();
         let currentFileName = '';
+        let directoryHandle = null;  // handle выбранной папки для сохранения
 
         // === JSZip минимальная реализация (без внешних зависимостей) ===
         // Используем простой подход — скачиваем по одному или через Blob
@@ -532,6 +539,7 @@ G00 X10 Y10
             updateSelectedCount();
             renderProgramList();
             updatePreview();
+            updateDirectoryInfo();  // показываем текущую папку
         }
 
         function renderProgramList() {
@@ -629,41 +637,124 @@ G00 X10 Y10
             document.getElementById('namePreview').textContent = baseName + '-A1' + ext;
         }
 
-        function downloadSingle(index) {
-            const prog = programs[index];
+        // === Работа с папкой сохранения ===
+        async function ensureDirectory() {
+            // Если папка уже выбрана — возвращаем её
+            if (directoryHandle) {
+                return directoryHandle;
+            }
+
+            // Проверяем поддержку File System Access API
+            if (!('showDirectoryPicker' in window)) {
+                // Fallback для браузеров без поддержки API
+                alert('Ваш браузер не поддерживает сохранение в папку. Файлы будут скачаны стандартным способом.');
+                return null;
+            }
+
+            try {
+                directoryHandle = await window.showDirectoryPicker({
+                    mode: 'readwrite',
+                    startIn: 'downloads'
+                });
+                updateDirectoryInfo();
+                return directoryHandle;
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    alert('Не удалось получить доступ к папке: ' + err.message);
+                }
+                return null;
+            }
+        }
+
+        async function saveToDirectory(filename, content) {
+            const dir = await ensureDirectory();
+            if (!dir) return false;
+
+            try {
+                const fileHandle = await dir.getFileHandle(filename, { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(content);
+                await writable.close();
+                return true;
+            } catch (err) {
+                console.error('Ошибка сохранения файла:', err);
+                return false;
+            }
+        }
+
+        function updateDirectoryInfo() {
+            const infoEl = document.getElementById('directoryInfo');
+            const btnChange = document.getElementById('btnChangeDir');
+            if (directoryHandle) {
+                infoEl.textContent = '📁 Папка: ' + directoryHandle.name;
+                infoEl.style.color = '#10b981';
+                btnChange.style.display = 'inline-flex';
+            } else {
+                infoEl.textContent = '📁 Папка не выбрана';
+                infoEl.style.color = '#94a3b8';
+                btnChange.style.display = 'none';
+            }
+        }
+
+        async function changeDirectory() {
+            directoryHandle = null;
+            await ensureDirectory();
+        }
+
+        function fallbackDownload(prog) {
             const blob = new Blob([prog.content], { type: 'text/plain;charset=utf-8' });
             saveAs(blob, getFileName(prog));
         }
 
-        function downloadEach() {
-            programs.forEach((prog, i) => {
+        async function downloadSingle(index) {
+            const prog = programs[index];
+            const saved = await saveToDirectory(getFileName(prog), prog.content);
+            if (!saved) {
+                fallbackDownload(prog);
+            }
+        }
+
+        async function downloadEach() {
+            const dir = await ensureDirectory();
+            for (const [i, prog] of programs.entries()) {
                 if (selectedPrograms.has(i)) {
-                    downloadSingle(i);
+                    if (dir) {
+                        await saveToDirectory(getFileName(prog), prog.content);
+                    } else {
+                        fallbackDownload(prog);
+                    }
                 }
-            });
+            }
         }
 
         async function downloadZip() {
             const selected = programs.filter((_, i) => selectedPrograms.has(i));
             if (selected.length === 0) return;
 
-            if (selected.length === 1) {
-                downloadSingle(programs.indexOf(selected[0]));
+            // Если папка выбрана — сохраняем каждый файл в папку
+            const dir = await ensureDirectory();
+            if (dir) {
+                for (const prog of selected) {
+                    await saveToDirectory(getFileName(prog), prog.content);
+                }
                 return;
             }
 
-            // Создаём простой ZIP без внешних библиотек
-            // Используем подход с множественным скачиванием как fallback
-            // Или создаём ZIP вручную
+            // Fallback: если API недоступен — создаём ZIP
+            if (selected.length === 1) {
+                fallbackDownload(selected[0]);
+                return;
+            }
 
             try {
                 const zipBlob = await createZip(selected);
                 const baseName = currentFileName.replace(/\.[^.]+$/, '');
                 saveAs(zipBlob, baseName + '_split.zip');
             } catch (e) {
-                // Fallback — скачиваем по одному
                 alert('Не удалось создать ZIP. Файлы будут скачаны по одному.');
-                downloadEach();
+                for (const prog of selected) {
+                    fallbackDownload(prog);
+                }
             }
         }
 
@@ -788,6 +879,7 @@ G00 X10 Y10
             document.getElementById('resultsSection').classList.remove('active');
             document.getElementById('fileInput').value = '';
             hideError();
+            updateDirectoryInfo();  // обновляем отображение папки
         }
 
         function showError(msg) {
