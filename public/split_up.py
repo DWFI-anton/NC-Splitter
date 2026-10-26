@@ -256,22 +256,24 @@ class UPSplitterApp:
         file_basename = os.path.basename(self.source_file)
         base_name, ext = os.path.splitext(file_basename)
 
-        # Разделяем по %
+        # Разделяем по %, сохраняя символы % в начале и конце каждой программы
         parts = content.split("%")
         self.programs = []
         idx = 0
 
         for part in parts:
-            trimmed = part.strip()
-            if trimmed:
+            if part.strip():  # есть содержимое между маркерами
+                # Оборачиваем обратно в %...% как в оригинальном файле
+                prog_content = "%" + part + "%"
+
                 # Формируем имя: {base_name}-A{i+1}{ext}
                 name = f"{base_name}-A{idx + 1}{ext}"
 
                 self.programs.append({
                     "name": name,
-                    "content": trimmed,
-                    "lines": len(trimmed.split("\n")),
-                    "size": len(trimmed.encode("utf-8")),
+                    "content": prog_content,
+                    "lines": len(prog_content.split("\n")),
+                    "size": len(prog_content.encode("utf-8")),
                 })
                 idx += 1
 

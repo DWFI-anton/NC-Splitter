@@ -496,17 +496,19 @@ G00 X10 Y10
             let idx = 0;
 
             for (const part of parts) {
-                const trimmed = part.trim();
-                if (!trimmed) continue;
+                if (!part.trim()) continue;  // пропускаем пустые части
+
+                // Оборачиваем обратно в %...% как в оригинальном файле
+                const progContent = '%' + part + '%';
 
                 // Формируем имя: {base_name}-A{i+1}{ext}
                 const progName = baseName + '-A' + (idx + 1) + ext;
 
                 programs.push({
                     name: progName,
-                    content: trimmed,
-                    lines: trimmed.split('\n').length,
-                    size: new Blob([trimmed]).size,
+                    content: progContent,
+                    lines: progContent.split('\n').length,
+                    size: new Blob([progContent]).size,
                     index: idx
                 });
                 idx++;
