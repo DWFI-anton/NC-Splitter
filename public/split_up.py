@@ -10,7 +10,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext
 import os
-import re
 
 
 class UPSplitterApp:
@@ -222,9 +221,10 @@ class UPSplitterApp:
         file_path = filedialog.askopenfilename(
             title="Выберите файл с управляющими программами",
             filetypes=[
-                ("Все поддерживаемые", "*.txt *.nc *.cnc *.gcode *.tap *.mpf *.spf *"),
+                ("Все поддерживаемые", "*.txt *.nc *.anc *.cnc *.gcode *.tap *.mpf *.spf *"),
                 ("Текстовые файлы", "*.txt"),
                 ("NC файлы", "*.nc"),
+                ("ANC файлы", "*.anc"),
                 ("G-code файлы", "*.gcode"),
                 ("Все файлы", "*.*"),
             ],
@@ -252,24 +252,20 @@ class UPSplitterApp:
             messagebox.showerror("Ошибка", f"Не удалось прочитать файл:\n{e}")
             return
 
+        # Извлекаем base_name и расширение из исходного файла
+        file_basename = os.path.basename(self.source_file)
+        base_name, ext = os.path.splitext(file_basename)
+
         # Разделяем по %
         parts = content.split("%")
         self.programs = []
+        idx = 0
 
         for part in parts:
             trimmed = part.strip()
             if trimmed:
-                # Определяем имя программы
-                lines = trimmed.split("\n")
-                first_line = lines[0].strip() if lines else ""
-
-                # Ищем O-номер
-                o_match = re.match(r"^[Oo](\d+)", first_line)
-                if o_match:
-                    name = f"O{o_match.group(1)}"
-                else:
-                    # Берём первую значимую строку
-                    name = first_line[:30].replace(" ", "_") if first_line else f"program_{len(self.programs) + 1}"
+                # Формируем имя: {base_name}-A{i+1}{ext}
+                name = f"{base_name}-A{idx + 1}{ext}"
 
                 self.programs.append({
                     "name": name,
@@ -277,6 +273,7 @@ class UPSplitterApp:
                     "lines": len(trimmed.split("\n")),
                     "size": len(trimmed.encode("utf-8")),
                 })
+                idx += 1
 
         # Обновляем список
         self.program_list.config(state=tk.NORMAL)
@@ -329,15 +326,14 @@ class UPSplitterApp:
 
         saved = 0
         for prog in self.programs:
-            safe_name = re.sub(r'[^\w\-.]', '_', prog['name'])
-            file_path = os.path.join(folder, f"{safe_name}.txt")
+            file_path = os.path.join(folder, prog['name'])
 
             # Если файл уже существует, добавляем номер
             counter = 1
             base_path = file_path
             while os.path.exists(file_path):
-                name, ext = os.path.splitext(base_path)
-                file_path = f"{name}_{counter}{ext}"
+                name_part, ext_part = os.path.splitext(base_path)
+                file_path = f"{name_part}_{counter}{ext_part}"
                 counter += 1
 
             with open(file_path, "w", encoding="utf-8") as f:
@@ -370,8 +366,7 @@ class UPSplitterApp:
         try:
             with zipfile.ZipFile(file_path, "w", zipfile.ZIP_DEFLATED) as zf:
                 for prog in self.programs:
-                    safe_name = re.sub(r'[^\w\-.]', '_', prog['name'])
-                    zf.writestr(f"{safe_name}.txt", prog["content"])
+                    zf.writestr(prog['name'], prog["content"])
 
             self.status_bar.config(text=f"✅ ZIP-архив сохранён: {file_path}")
             messagebox.showinfo("Готово", f"Архив сохранён:\n{file_path}\n\nФайлов в архиве: {len(self.programs)}")

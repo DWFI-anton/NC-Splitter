@@ -368,7 +368,7 @@
                 <div class="icon">📁</div>
                 <h2>Перетащите файл сюда или нажмите для выбора</h2>
                 <p>Поддерживаются файлы с управляющими программами (G-code, CNC)</p>
-                <input type="file" id="fileInput" style="display:none" accept=".txt,.nc,.cnc,.gcode,.tap,.mpf,.spf,*">
+                <input type="file" id="fileInput" style="display:none" accept=".txt,.nc,.anc,.cnc,.gcode,.tap,.mpf,.spf,*">
             </div>
 
             <div class="error" id="error">
@@ -415,18 +415,10 @@ G00 X10 Y10
             </div>
 
             <div class="naming-options">
-                <h4>Настройки имён файлов</h4>
+                <h4>Формат имён файлов</h4>
                 <div class="naming-row">
-                    <div>
-                        <label>Префикс:</label>
-                        <input type="text" id="prefixInput" placeholder="нет" oninput="updatePreview()">
-                    </div>
-                    <div>
-                        <label>Суффикс:</label>
-                        <input type="text" id="suffixInput" placeholder="нет" oninput="updatePreview()">
-                    </div>
                     <div class="preview-name">
-                        Имя: <code id="namePreview">O0001.txt</code>
+                        Формат: <code id="namePreview">имя_файла-A1.расширение</code>
                     </div>
                 </div>
             </div>
@@ -487,6 +479,18 @@ G00 X10 Y10
 
         function parsePrograms(content, name) {
             currentFileName = name;
+
+            // Извлекаем base_name и расширение из исходного файла
+            const lastDot = name.lastIndexOf('.');
+            let baseName, ext;
+            if (lastDot > 0) {
+                baseName = name.substring(0, lastDot);
+                ext = name.substring(lastDot);
+            } else {
+                baseName = name;
+                ext = '';
+            }
+
             const parts = content.split('%');
             programs = [];
             let idx = 0;
@@ -495,16 +499,8 @@ G00 X10 Y10
                 const trimmed = part.trim();
                 if (!trimmed) continue;
 
-                const lines = trimmed.split('\n');
-                const firstLine = (lines[0] || '').trim();
-                let progName = '';
-
-                const oMatch = firstLine.match(/^[Oo](\d+)/);
-                if (oMatch) {
-                    progName = 'O' + oMatch[1];
-                } else {
-                    progName = firstLine.substring(0, 30).replace(/[^a-zA-Z0-9_\-]/g, '_') || ('program_' + (idx + 1));
-                }
+                // Формируем имя: {base_name}-A{i+1}{ext}
+                const progName = baseName + '-A' + (idx + 1) + ext;
 
                 programs.push({
                     name: progName,
@@ -614,16 +610,21 @@ G00 X10 Y10
         }
 
         function getFileName(prog) {
-            const prefix = document.getElementById('prefixInput').value;
-            const suffix = document.getElementById('suffixInput').value;
-            const safeName = prog.name.replace(/[^\w\-.]/g, '_');
-            return prefix + safeName + suffix + '.txt';
+            return prog.name;
         }
 
         function updatePreview() {
-            const prefix = document.getElementById('prefixInput').value;
-            const suffix = document.getElementById('suffixInput').value;
-            document.getElementById('namePreview').textContent = prefix + 'O0001' + suffix + '.txt';
+            // Показываем пример имени на основе текущего файла
+            const lastDot = currentFileName.lastIndexOf('.');
+            let baseName, ext;
+            if (lastDot > 0) {
+                baseName = currentFileName.substring(0, lastDot);
+                ext = currentFileName.substring(lastDot);
+            } else {
+                baseName = currentFileName;
+                ext = '';
+            }
+            document.getElementById('namePreview').textContent = baseName + '-A1' + ext;
         }
 
         function downloadSingle(index) {
