@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Разделитель УП</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b, #0f172a);
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+        .header {
+            border-bottom: 1px solid rgba(51,65,85,0.5);
+            background: rgba(15,23,42,0.5);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .header-icon {
+            width: 40px; height: 40px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #3b82f6, #06b6d4);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+        }
+        .header h1 { font-size: 20px; font-weight: bold; }
+        .header p { font-size: 12px; color: #94a3b8; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 32px 24px; }
+
+        /* Drop zone */
+        .drop-zone {
+            border: 2px dashed #475569;
+            border-radius: 16px;
+            padding: 48px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #06b6d4;
+            background: rgba(6,182,212,0.05);
+            transform: scale(1.01);
+        }
+        .drop-zone .icon {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            background: rgba(51,65,85,0.5);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 28px;
+        }
+        .drop-zone h2 { font-size: 18px; margin-bottom: 8px; color: #e2e8f0; }
+        .drop-zone p { font-size: 14px; color: #94a3b8; }
+
+        /* Info box */
+        .info-box {
+            margin-top: 32px;
+            background: rgba(51,65,85,0.3);
+            border: 1px solid rgba(51,65,85,0.5);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .info-box h3 {
+            font-size: 14px; font-weight: 600;
+            color: #cbd5e1;
+            margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .info-box ul { list-style: none; }
+        .info-box li {
+            font-size: 14px; color: #94a3b8;
+            padding: 4px 0; padding-left: 16px;
+            position: relative;
+        }
+        .info-box li::before {
+            content: '•'; position: absolute; left: 0;
+            color: #06b6d4;
+        }
+        .info-box code {
+            background: #334155;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #67e8f9;
+        }
+        .example {
+            margin-top: 16px;
+            background: rgba(15,23,42,0.5);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .example pre {
+            font-size: 12px;
+            font-family: 'Consolas', monospace;
+            color: #cbd5e1;
+            white-space: pre;
+        }
+
+        /* Results */
+        .results { display: none; }
+        .results.active { display: block; }
+        .top-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .top-bar .file-info {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        .top-bar .file-info strong { color: #e2e8f0; }
+        .top-bar .file-info .count { color: #06b6d4; font-weight: 600; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb, #06b6d4);
+            color: white;
+            box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+        }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary:disabled {
+            background: #475569;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-secondary {
+            background: #334155;
+            color: #e2e8f0;
+        }
+        .btn-secondary:hover { background: #475569; }
+        .btn-small {
+            padding: 4px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        /* Naming options */
+        .naming-options {
+            background: rgba(51,65,85,0.3);
+            border: 1px solid rgba(51,65,85,0.5);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .naming-options h4 {
+            font-size: 13px;
+            color: #cbd5e1;
+            margin-bottom: 10px;
+        }
+        .naming-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 16px;
+        }
+        .naming-row label {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        .naming-row input {
+            padding: 6px 12px;
+            background: #0f172a;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            color: white;
+            font-size: 13px;
+            width: 120px;
+        }
+        .naming-row input:focus {
+            outline: none;
+            border-color: #06b6d4;
+        }
+        .naming-row .preview-name {
+            font-size: 12px;
+            color: #64748b;
+        }
+        .naming-row .preview-name code {
+            background: #334155;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #cbd5e1;
+        }
+
+        /* Actions */
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        /* Program list */
+        .program-list { display: flex; flex-direction: column; gap: 8px; }
+        .program-item {
+            background: rgba(51,65,85,0.4);
+            border: 1px solid rgba(51,65,85,0.5);
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+        }
+        .program-item.selected {
+            border-color: rgba(6,182,212,0.5);
+            box-shadow: 0 4px 12px rgba(6,182,212,0.1);
+        }
+        .program-item:not(.selected) { opacity: 0.5; }
+
+        .checkbox {
+            width: 20px; height: 20px;
+            border-radius: 4px;
+            border: 2px solid #64748b;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .checkbox.checked {
+            background: #06b6d4;
+            border-color: #22d3ee;
+        }
+        .checkbox.checked::after {
+            content: '✓';
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .program-info { flex: 1; min-width: 0; }
+        .program-name {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .program-name .num {
+            font-size: 12px;
+            color: #64748b;
+            font-family: monospace;
+        }
+        .program-name .name {
+            font-weight: 500;
+            color: #e2e8f0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .program-meta {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        .btn-preview {
+            padding: 4px 8px;
+            font-size: 12px;
+            color: #94a3b8;
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-preview:hover { color: #e2e8f0; }
+
+        .btn-download {
+            padding: 6px 12px;
+            background: #334155;
+            border: none;
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .btn-download:hover { background: #475569; }
+
+        /* Preview panel */
+        .preview-panel {
+            display: none;
+            margin-top: 8px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 200px;
+            overflow: auto;
+        }
+        .preview-panel.active { display: block; }
+        .preview-panel pre {
+            font-size: 12px;
+            font-family: 'Consolas', monospace;
+            color: #a5f3fc;
+            white-space: pre-wrap;
+        }
+        .preview-panel .line-num {
+            color: #475569;
+            display: inline-block;
+            width: 30px;
+            text-align: right;
+            margin-right: 12px;
+            user-select: none;
+        }
+
+        /* Error */
+        .error {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 12px;
+            color: #fca5a5;
+            font-size: 14px;
+            display: none;
+        }
+        .error.active { display: flex; align-items: center; gap: 8px; }
+
+        /* Footer */
+        .footer {
+            border-top: 1px solid rgba(51,65,85,0.5);
+            margin-top: 48px;
+            padding: 16px;
+            text-align: center;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-icon">⚙</div>
+        <div>
+            <h1>Разделитель УП</h1>
+            <p>Разделение файлов с управляющими программами по маркерам %</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Upload section -->
+        <div id="uploadSection">
+            <div class="drop-zone" id="dropZone">
+                <div class="icon">📁</div>
+                <h2>Перетащите файл сюда или нажмите для выбора</h2>
+                <p>Поддерживаются файлы с управляющими программами (G-code, CNC)</p>
+                <input type="file" id="fileInput" style="display:none" accept=".txt,.nc,.cnc,.gcode,.tap,.mpf,.spf,*">
+            </div>
+
+            <div class="error" id="error">
+                <span>⚠️</span>
+                <span id="errorText"></span>
+            </div>
+
+            <div class="info-box">
+                <h3>ℹ️ Как это работает</h3>
+                <ul>
+                    <li>Загрузите файл, содержащий несколько управляющих программ</li>
+                    <li>Программы разделяются по маркеру <code>%</code></li>
+                    <li>Выберите нужные программы и скачайте их по отдельности или все вместе в ZIP</li>
+                </ul>
+                <div class="example">
+                    <pre>%
+O0001
+G90 G21
+G00 X0 Y0
+...
+%
+O0002
+G90 G21
+G00 X10 Y10
+...
+%</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results section -->
+        <div class="results" id="resultsSection">
+            <div class="top-bar">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button class="btn btn-secondary" onclick="reset()">← Другой файл</button>
+                    <div class="file-info">
+                        <strong id="fileName"></strong> → <span class="count" id="progCount"></span>
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary btn-small" onclick="selectAll()">Выбрать все</button>
+                    <button class="btn btn-secondary btn-small" onclick="deselectAll()">Снять выбор</button>
+                </div>
+            </div>
+
+            <div class="naming-options">
+                <h4>Настройки имён файлов</h4>
+                <div class="naming-row">
+                    <div>
+                        <label>Префикс:</label>
+                        <input type="text" id="prefixInput" placeholder="нет" oninput="updatePreview()">
+                    </div>
+                    <div>
+                        <label>Суффикс:</label>
+                        <input type="text" id="suffixInput" placeholder="нет" oninput="updatePreview()">
+                    </div>
+                    <div class="preview-name">
+                        Имя: <code id="namePreview">O0001.txt</code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" id="btnZip" onclick="downloadZip()">
+                    📥 Скачать в ZIP (<span id="selectedCount">0</span>)
+                </button>
+                <button class="btn btn-secondary" onclick="downloadEach()">
+                    📄 Каждый файл отдельно
+                </button>
+            </div>
+
+            <div class="program-list" id="programList"></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Разделитель управляющих программ • Файлы обрабатываются локально в вашем браузере
+    </div>
+
+    <script>
+        let programs = [];
+        let selectedPrograms = new Set();
+        let currentFileName = '';
+
+        // === JSZip минимальная реализация (без внешних зависимостей) ===
+        // Используем простой подход — скачиваем по одному или через Blob
+
+        // Drop zone
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) handleFile(e.target.files[0]);
+        });
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                parsePrograms(e.target.result, file.name);
+            };
+            reader.readAsText(file);
+        }
+
+        function parsePrograms(content, name) {
+            currentFileName = name;
+            const parts = content.split('%');
+            programs = [];
+            let idx = 0;
+
+            for (const part of parts) {
+                const trimmed = part.trim();
+                if (!trimmed) continue;
+
+                const lines = trimmed.split('\n');
+                const firstLine = (lines[0] || '').trim();
+                let progName = '';
+
+                const oMatch = firstLine.match(/^[Oo](\d+)/);
+                if (oMatch) {
+                    progName = 'O' + oMatch[1];
+                } else {
+                    progName = firstLine.substring(0, 30).replace(/[^a-zA-Z0-9_\-]/g, '_') || ('program_' + (idx + 1));
+                }
+
+                programs.push({
+                    name: progName,
+                    content: trimmed,
+                    lines: trimmed.split('\n').length,
+                    size: new Blob([trimmed]).size,
+                    index: idx
+                });
+                idx++;
+            }
+
+            if (programs.length === 0) {
+                showError('Не найдено управляющих программ. Убедитесь, что файл содержит маркеры %.');
+                return;
+            }
+
+            hideError();
+            selectedPrograms = new Set(programs.map((_, i) => i));
+            renderResults();
+        }
+
+        function renderResults() {
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('resultsSection').classList.add('active');
+            document.getElementById('fileName').textContent = currentFileName;
+            document.getElementById('progCount').textContent = programs.length + ' программ';
+            updateSelectedCount();
+            renderProgramList();
+            updatePreview();
+        }
+
+        function renderProgramList() {
+            const list = document.getElementById('programList');
+            list.innerHTML = '';
+
+            programs.forEach((prog, i) => {
+                const item = document.createElement('div');
+                item.className = 'program-item' + (selectedPrograms.has(i) ? ' selected' : '');
+                item.innerHTML = `
+                    <div class="checkbox ${selectedPrograms.has(i) ? 'checked' : ''}" onclick="toggleSelect(${i})"></div>
+                    <div class="program-info">
+                        <div class="program-name">
+                            <span class="num">#${i + 1}</span>
+                            <span class="name">${escapeHtml(prog.name)}</span>
+                        </div>
+                        <div class="program-meta">${prog.lines} строк • ${prog.size} байт</div>
+                    </div>
+                    <button class="btn-preview" onclick="togglePreview(${i}, this)">
+                        ▾ Просмотр
+                    </button>
+                    <button class="btn-download" onclick="downloadSingle(${i})">
+                        📥 Скачать
+                    </button>
+                `;
+
+                // Preview panel
+                const previewPanel = document.createElement('div');
+                previewPanel.className = 'preview-panel';
+                previewPanel.id = 'preview-' + i;
+                const previewLines = prog.content.split('\n').slice(0, 15);
+                let previewHtml = previewLines.map((line, li) =>
+                    `<div><span class="line-num">${li + 1}</span>${escapeHtml(line)}</div>`
+                ).join('');
+                if (prog.content.split('\n').length > 15) {
+                    previewHtml += `<div style="color:#64748b">... ещё ${prog.content.split('\n').length - 15} строк</div>`;
+                }
+                previewPanel.innerHTML = `<pre>${previewHtml}</pre>`;
+
+                const wrapper = document.createElement('div');
+                wrapper.appendChild(item);
+                wrapper.appendChild(previewPanel);
+                list.appendChild(wrapper);
+            });
+        }
+
+        function toggleSelect(index) {
+            if (selectedPrograms.has(index)) {
+                selectedPrograms.delete(index);
+            } else {
+                selectedPrograms.add(index);
+            }
+            renderProgramList();
+            updateSelectedCount();
+        }
+
+        function selectAll() {
+            selectedPrograms = new Set(programs.map((_, i) => i));
+            renderProgramList();
+            updateSelectedCount();
+        }
+
+        function deselectAll() {
+            selectedPrograms = new Set();
+            renderProgramList();
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = selectedPrograms.size;
+            document.getElementById('btnZip').disabled = selectedPrograms.size === 0;
+        }
+
+        function togglePreview(index, btn) {
+            const panel = document.getElementById('preview-' + index);
+            panel.classList.toggle('active');
+            btn.textContent = panel.classList.contains('active') ? '▴ Скрыть' : '▾ Просмотр';
+        }
+
+        function getFileName(prog) {
+            const prefix = document.getElementById('prefixInput').value;
+            const suffix = document.getElementById('suffixInput').value;
+            const safeName = prog.name.replace(/[^\w\-.]/g, '_');
+            return prefix + safeName + suffix + '.txt';
+        }
+
+        function updatePreview() {
+            const prefix = document.getElementById('prefixInput').value;
+            const suffix = document.getElementById('suffixInput').value;
+            document.getElementById('namePreview').textContent = prefix + 'O0001' + suffix + '.txt';
+        }
+
+        function downloadSingle(index) {
+            const prog = programs[index];
+            const blob = new Blob([prog.content], { type: 'text/plain;charset=utf-8' });
+            saveAs(blob, getFileName(prog));
+        }
+
+        function downloadEach() {
+            programs.forEach((prog, i) => {
+                if (selectedPrograms.has(i)) {
+                    downloadSingle(i);
+                }
+            });
+        }
+
+        async function downloadZip() {
+            const selected = programs.filter((_, i) => selectedPrograms.has(i));
+            if (selected.length === 0) return;
+
+            if (selected.length === 1) {
+                downloadSingle(programs.indexOf(selected[0]));
+                return;
+            }
+
+            // Создаём простой ZIP без внешних библиотек
+            // Используем подход с множественным скачиванием как fallback
+            // Или создаём ZIP вручную
+
+            try {
+                const zipBlob = await createZip(selected);
+                const baseName = currentFileName.replace(/\.[^.]+$/, '');
+                saveAs(zipBlob, baseName + '_split.zip');
+            } catch (e) {
+                // Fallback — скачиваем по одному
+                alert('Не удалось создать ZIP. Файлы будут скачаны по одному.');
+                downloadEach();
+            }
+        }
+
+        // === Минимальная ZIP-реализация ===
+        async function createZip(files) {
+            const chunks = [];
+            const centralDir = [];
+            let offset = 0;
+
+            for (const file of files) {
+                const nameBytes = new TextEncoder().encode(getFileName(file));
+                const contentBytes = new TextEncoder().encode(file.content);
+
+                // CRC32
+                const crc = crc32(contentBytes);
+
+                // Local file header
+                const localHeader = new Uint8Array(30 + nameBytes.length);
+                const view = new DataView(localHeader.buffer);
+                view.setUint32(0, 0x04034b50, true);  // signature
+                view.setUint16(4, 20, true);           // version needed
+                view.setUint16(6, 0, true);            // flags
+                view.setUint16(8, 0, true);            // compression (store)
+                view.setUint16(10, 0, true);           // mod time
+                view.setUint16(12, 0, true);           // mod date
+                view.setUint32(14, crc, true);         // crc32
+                view.setUint32(18, contentBytes.length, true);  // compressed size
+                view.setUint32(22, contentBytes.length, true);  // uncompressed size
+                view.setUint16(26, nameBytes.length, true);     // name length
+                view.setUint16(28, 0, true);           // extra length
+                localHeader.set(nameBytes, 30);
+
+                chunks.push(localHeader);
+                chunks.push(contentBytes);
+
+                // Central directory entry
+                const centralEntry = new Uint8Array(46 + nameBytes.length);
+                const cv = new DataView(centralEntry.buffer);
+                cv.setUint32(0, 0x02014b50, true);    // signature
+                cv.setUint16(4, 20, true);             // version made by
+                cv.setUint16(6, 20, true);             // version needed
+                cv.setUint16(8, 0, true);              // flags
+                cv.setUint16(10, 0, true);             // compression
+                cv.setUint16(12, 0, true);             // mod time
+                cv.setUint16(14, 0, true);             // mod date
+                cv.setUint32(16, crc, true);           // crc32
+                cv.setUint32(20, contentBytes.length, true);  // compressed size
+                cv.setUint32(24, contentBytes.length, true);  // uncompressed size
+                cv.setUint16(28, nameBytes.length, true);     // name length
+                cv.setUint16(30, 0, true);             // extra length
+                cv.setUint16(32, 0, true);             // comment length
+                cv.setUint16(34, 0, true);             // disk number
+                cv.setUint16(36, 0, true);             // internal attrs
+                cv.setUint32(38, 0, true);             // external attrs
+                cv.setUint32(42, offset, true);        // local header offset
+                centralEntry.set(nameBytes, 46);
+
+                centralDir.push(centralEntry);
+                offset += localHeader.length + contentBytes.length;
+            }
+
+            // Central directory
+            let centralOffset = offset;
+            let centralSize = 0;
+            for (const entry of centralDir) {
+                chunks.push(entry);
+                centralSize += entry.length;
+            }
+
+            // End of central directory
+            const endRecord = new Uint8Array(22);
+            const ev = new DataView(endRecord.buffer);
+            ev.setUint32(0, 0x06054b50, true);        // signature
+            ev.setUint16(4, 0, true);                  // disk number
+            ev.setUint16(6, 0, true);                  // central dir disk
+            ev.setUint16(8, files.length, true);       // entries on disk
+            ev.setUint16(10, files.length, true);      // total entries
+            ev.setUint32(12, centralSize, true);       // central dir size
+            ev.setUint32(16, centralOffset, true);     // central dir offset
+            ev.setUint16(20, 0, true);                 // comment length
+
+            chunks.push(endRecord);
+
+            return new Blob(chunks, { type: 'application/zip' });
+        }
+
+        function crc32(data) {
+            let crc = 0xFFFFFFFF;
+            const table = crc32.table || (crc32.table = (() => {
+                const t = new Uint32Array(256);
+                for (let i = 0; i < 256; i++) {
+                    let c = i;
+                    for (let j = 0; j < 8; j++) {
+                        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                    }
+                    t[i] = c;
+                }
+                return t;
+            })());
+            for (let i = 0; i < data.length; i++) {
+                crc = table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+            }
+            return (crc ^ 0xFFFFFFFF) >>> 0;
+        }
+
+        function saveAs(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function reset() {
+            programs = [];
+            selectedPrograms = new Set();
+            currentFileName = '';
+            document.getElementById('uploadSection').style.display = 'block';
+            document.getElementById('resultsSection').classList.remove('active');
+            document.getElementById('fileInput').value = '';
+            hideError();
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('error');
+            document.getElementById('errorText').textContent = msg;
+            el.classList.add('active');
+        }
+
+        function hideError() {
+            document.getElementById('error').classList.remove('active');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
